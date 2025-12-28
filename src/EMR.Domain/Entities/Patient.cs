@@ -1,5 +1,6 @@
 using EMR.Domain.Common;
 using EMR.Domain.Enums;
+using EMR.Domain.Events.Patient;
 using EMR.Domain.ValueObjects;
 
 namespace EMR.Domain.Entities;
@@ -7,8 +8,9 @@ namespace EMR.Domain.Entities;
 /// <summary>
 /// Represents a patient in the EMR system with full demographics and PHI data
 /// HIPAA Compliance: Contains Protected Health Information (PHI)
+/// Event Sourcing: Inherits from AggregateRoot for domain event support
 /// </summary>
-public class Patient : BaseEntity
+public class Patient : AggregateRoot
 {
     /// <summary>
     /// Medical Record Number (MRN) - unique patient identifier
@@ -166,6 +168,16 @@ public class Patient : BaseEntity
         Ethnicity = ethnicity;
         PreferredLanguage = preferredLanguage;
         CreatedBy = createdBy;
+
+        // Raise domain event for event sourcing and integration
+        AddDomainEvent(new PatientRegisteredEvent(
+            patientId: Id,
+            medicalRecordNumber: MedicalRecordNumber.Value,
+            firstName: FirstName,
+            lastName: LastName,
+            dateOfBirth: DateOfBirth,
+            gender: Gender.ToString(),
+            userId: createdBy));
     }
 
     /// <summary>

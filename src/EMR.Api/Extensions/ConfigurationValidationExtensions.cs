@@ -46,9 +46,9 @@ public class AzureAdB2COptionsValidator : IValidateOptions<AzureAdB2COptions>
     {
         var errors = new List<string>();
 
-        // Skip validation in development if all values are placeholders
-        // This allows developers to run locally without Azure AD B2C configured
-        if (_environment.IsDevelopment())
+        // Skip validation in development and testing environments
+        // This allows developers to run locally and tests to run without Azure AD B2C configured
+        if (_environment.IsDevelopment() || _environment.EnvironmentName == "Testing")
         {
             return ValidateOptionsResult.Success;
         }
@@ -188,7 +188,7 @@ public static class ConfigurationValidationExtensions
                 "Please configure Azure AD B2C settings properly before deploying to production.",
                 string.Join("; ", ex.Failures));
 
-            if (!environment.IsDevelopment())
+            if (!environment.IsDevelopment() && environment.EnvironmentName != "Testing")
             {
                 throw new InvalidOperationException(
                     $"Configuration validation failed: {string.Join("; ", ex.Failures)}",

@@ -118,6 +118,15 @@ builder.Services.AddRateLimiter(options =>
         limiter.QueueLimit = 5;
     });
 
+    // Rate limit for patient registration to prevent abuse/flooding
+    options.AddFixedWindowLimiter("patient-registration", limiter =>
+    {
+        limiter.PermitLimit = 10;           // Max 10 registrations per window per user
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        limiter.QueueLimit = 2;             // Allow minimal queuing
+    });
+
     // Handle rate limit exceeded
     options.OnRejected = async (context, token) =>
     {

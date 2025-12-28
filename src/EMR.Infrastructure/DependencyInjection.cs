@@ -30,22 +30,28 @@ public static class DependencyInjection
         // Register EF Core Interceptors
         services.AddScoped<AuditInterceptor>();
 
-        // Add PostgreSQL DbContext
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-        services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
+        // Skip database registration in Testing environment
+        // Tests will configure their own DbContext with appropriate provider (e.g., SQLite in-memory)
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        if (environment != "Testing")
         {
-            // Add audit interceptor for automatic change tracking
-            var auditInterceptor = serviceProvider.GetRequiredService<AuditInterceptor>();
-
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+            // Add PostgreSQL DbContext
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            services.AddDbContext<ApplicationDbContext>((serviceProvider, options) =>
             {
-                npgsqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorCodesToAdd: null);
-            })
-            .AddInterceptors(auditInterceptor);
-        });
+                // Add audit interceptor for automatic change tracking
+                var auditInterceptor = serviceProvider.GetRequiredService<AuditInterceptor>();
+
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorCodesToAdd: null);
+                })
+                .AddInterceptors(auditInterceptor);
+            });
+        }
 
         // Register Unit of Work
         services.AddScoped<IUnitOfWork, UnitOfWork>();

@@ -41,10 +41,12 @@ public class PatientsController : ControllerBase
     /// <returns>Registered patient details</returns>
     [HttpPost]
     [Authorize(Roles = "Admin,Doctor,Nurse")]
+    [EnableRateLimiting("patient-registration")] // SECURITY: Rate limit to prevent registration flooding/abuse
     [ProducesResponseType(typeof(PatientDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> RegisterPatient(
         [FromBody] RegisterPatientCommand command,

@@ -44,10 +44,10 @@ public class RegisterPatientCommandHandler : ICommandHandler<RegisterPatientComm
 
         try
         {
-            _logger.LogInformation("Registering new patient: {FirstName} {LastName}, DOB: {DateOfBirth}",
+            // HIPAA FIX: Removed DOB from log - PHI should not be logged in plaintext
+            _logger.LogInformation("Registering new patient: {FirstName} {LastName}",
                 LogSanitizer.SanitizePersonName(request.FirstName),
-                LogSanitizer.SanitizePersonName(request.LastName),
-                request.DateOfBirth.ToString("yyyy-MM-dd"));
+                LogSanitizer.SanitizePersonName(request.LastName));
 
             // Check for potential duplicate patients
             var potentialDuplicates = await _patientRepository.FindPotentialDuplicatesAsync(
@@ -58,10 +58,11 @@ public class RegisterPatientCommandHandler : ICommandHandler<RegisterPatientComm
 
             if (potentialDuplicates.Any())
             {
-                _logger.LogWarning("Potential duplicate patient found during registration. FirstName: {FirstName}, LastName: {LastName}, DOB: {DateOfBirth}",
+                // HIPAA FIX: Removed DOB from log - PHI should not be logged in plaintext
+                _logger.LogWarning("Potential duplicate patient found during registration. FirstName: {FirstName}, LastName: {LastName}, Count: {DuplicateCount}",
                     LogSanitizer.SanitizePersonName(request.FirstName),
                     LogSanitizer.SanitizePersonName(request.LastName),
-                    request.DateOfBirth.ToString("yyyy-MM-dd"));
+                    potentialDuplicates.Count());
 
                 // Log but don't block registration - let staff handle duplicates
             }

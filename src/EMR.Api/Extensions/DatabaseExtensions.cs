@@ -14,6 +14,14 @@ public static class DatabaseExtensions
     /// </summary>
     public static async Task InitializeDatabaseAsync(this IServiceProvider serviceProvider)
     {
+        // Skip database initialization in Testing environment
+        // Tests manage their own database setup
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        if (environment == "Testing")
+        {
+            return;
+        }
+
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<ApplicationDbContext>>();
