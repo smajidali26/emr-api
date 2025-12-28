@@ -1,0 +1,68 @@
+FEATURE 56: CQRS READ MODEL PROJECTIONS - FILE LISTING
+========================================================
+
+DOMAIN LAYER (EMR.Domain)
+-------------------------
+Domain Events Infrastructure (Already Existed):
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\Common\IDomainEvent.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\Common\DomainEvent.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\Common\IAggregateRoot.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\Common\AggregateRoot.cs
+
+Read Model Entities:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\ReadModels\BaseReadModel.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\ReadModels\PatientSummaryReadModel.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\ReadModels\PatientDetailReadModel.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\ReadModels\EncounterListReadModel.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\ReadModels\ActiveOrdersReadModel.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Domain\ReadModels\ProviderScheduleReadModel.cs
+
+APPLICATION LAYER (EMR.Application)
+------------------------------------
+Abstractions:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Abstractions\IProjection.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Abstractions\IProjectionHandler.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Abstractions\IReadModelBuilder.cs
+
+Repository Interfaces:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Interfaces\IReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Interfaces\IPatientReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Interfaces\IEncounterReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Interfaces\IOrderReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Common\Interfaces\IProviderScheduleReadModelRepository.cs
+
+Query Handlers:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Features\Patients\Queries\GetPatientSummary.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Features\Patients\Queries\SearchPatients.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Application\Features\Patients\Queries\GetPatientDetail.cs
+
+INFRASTRUCTURE LAYER (EMR.Infrastructure)
+-----------------------------------------
+Data Layer:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Data\ReadDbContext.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Data\ApplicationDbContextWithEvents.cs
+
+Repository Implementations:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Repositories\ReadModels\ReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Repositories\ReadModels\PatientReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Repositories\ReadModels\EncounterReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Repositories\ReadModels\OrderReadModelRepository.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Repositories\ReadModels\ProviderScheduleReadModelRepository.cs
+
+Projection Infrastructure:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Projections\ProjectionHandlerBase.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Projections\EventualConsistencyManager.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Projections\DomainEventDispatcher.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Projections\ProjectionRebuilder.cs
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Projections\Examples\PatientProjectionExamples.cs
+
+Configuration:
+  - D:\code-source\EMR\source\emr-api\src\EMR.Infrastructure\Configuration\CqrsConfiguration.cs
+
+DOCUMENTATION
+-------------
+  - D:\code-source\EMR\source\emr-api\CQRS_READ_MODELS.md
+  - D:\code-source\EMR\source\emr-api\FEATURE_56_IMPLEMENTATION_SUMMARY.md
+  - D:\code-source\EMR\source\emr-api\FEATURE_56_FILES.txt
+
+TOTAL: 37 Files Created/Modified
