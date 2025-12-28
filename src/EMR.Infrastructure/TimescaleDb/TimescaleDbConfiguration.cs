@@ -366,6 +366,15 @@ public class TimescaleDbConfiguration : ITimescaleDbConfiguration
                 return 0;
             }
 
+            // SECURITY: Convert TimeSpan to a safe interval format to prevent SQL injection
+            // Validate and format as PostgreSQL interval string (e.g., "30 days")
+            var totalDays = (int)olderThan.TotalDays;
+            if (totalDays < 0 || totalDays > 36500) // Max ~100 years
+            {
+                throw new ArgumentOutOfRangeException(nameof(olderThan), "Interval must be between 0 and 36500 days");
+            }
+
+            // Use parameterized query with integer days
             var compressedCount = await _context.Database
                 .SqlQuery<int>($@"
                     SELECT COUNT(*)::INTEGER
@@ -374,7 +383,7 @@ public class TimescaleDbConfiguration : ITimescaleDbConfiguration
                         FROM timescaledb_information.chunks
                         WHERE hypertable_name = 'AuditLogs'
                         AND NOT is_compressed
-                        AND range_end < NOW() - {olderThan}::INTERVAL
+                        AND range_end < NOW() - INTERVAL '1 day' * {totalDays}
                     ) compressed")
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -392,24 +401,34 @@ public class TimescaleDbConfiguration : ITimescaleDbConfiguration
         }
     }
 
+    // SECURITY: Whitelist of allowed continuous aggregate names
+    // This prevents SQL injection even if method is called with external input
+    private static readonly HashSet<string> AllowedAggregates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "audit_daily_summary",
+        "audit_user_activity",
+        "audit_resource_access",
+        "audit_compliance_metrics"
+    };
+
     public async Task RefreshContinuousAggregatesAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var aggregates = new[]
-            {
-                "audit_daily_summary",
-                "audit_user_activity",
-                "audit_resource_access",
-                "audit_compliance_metrics"
-            };
-
-            foreach (var aggregate in aggregates)
+            foreach (var aggregate in AllowedAggregates)
             {
                 try
                 {
-                    // Safe: aggregate names come from hardcoded array above, not user input.
+                    // SECURITY: Validate aggregate name against whitelist and ensure it's a valid identifier
+                    if (!AllowedAggregates.Contains(aggregate) ||
+                        !System.Text.RegularExpressions.Regex.IsMatch(aggregate, @"^[a-z_][a-z0-9_]*$"))
+                    {
+                        _logger.LogWarning("Skipping invalid aggregate name: {Aggregate}", aggregate);
+                        continue;
+                    }
+
                     // PostgreSQL's refresh_continuous_aggregate requires literal identifier.
+                    // The aggregate name is validated against a whitelist above.
                     #pragma warning disable EF1002
                     await _context.Database.ExecuteSqlRawAsync(
                         $"CALL refresh_continuous_aggregate('{aggregate}', NULL, NULL);",
