@@ -357,19 +357,18 @@ public class PatientIdTests
     #region Edge Cases
 
     [Fact]
-    public void Create_WithGuidStringWithExtraWhitespace_ShouldThrowArgumentException()
+    public void Create_WithGuidStringWithExtraWhitespace_ShouldSucceed()
     {
         // Arrange
         var guid = Guid.NewGuid();
         var guidStringWithSpaces = $"  {guid}  ";
 
-        // Act & Assert
-        // Note: The implementation doesn't trim, so this should fail
-        var act = () => PatientId.Create(guidStringWithSpaces);
+        // Act
+        // Note: Guid.TryParse handles surrounding whitespace gracefully
+        var patientId = PatientId.Create(guidStringWithSpaces);
 
-        // If implementation trims, this will pass. If not, it will throw.
-        // Current implementation doesn't trim based on code review
-        act.Should().Throw<ArgumentException>();
+        // Assert
+        patientId.Value.Should().Be(guid);
     }
 
     [Fact]
