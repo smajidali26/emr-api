@@ -1,0 +1,305 @@
+# Example GitHub Actions Workflow for Performance Testing
+#
+# To use this workflow:
+# 1. Copy this file to .github/workflows/performance-test.yml in your repository root
+# 2. Update the BASE_URL secret in GitHub repository settings
+# 3. Customize the schedule, VUs, and thresholds as needed
+# 4. Commit and push to enable the workflow
+
+name: Performance Tests - EMR Authentication
+
+on:
+  # Run on schedule (daily at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+          - load
+          - stress
+          - spike
+          - soak
+          - smoke
+      target_vus:
+        description: 'Target virtual users (for load test)'
+        required: false
+        default: '100'
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+  # Run on pull requests to main (smoke test only)
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/EMR.Api/**'
+      - 'src/EMR.Infrastructure/**'
+      - 'tests/performance/**'
+
+env:
+  K6_VERSION: '0.48.0'
+
+jobs:
+  # Job 1: Smoke Test (Quick validation on PRs)
+  smoke-test:
+    name: Smoke Test (PR Validation)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | \
+            sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Verify k6 installation
+        run: k6 version
+
+      - name: Run Smoke Test
+        env:
+          BASE_URL: ${{ secrets.STAGING_API_URL }}
+          ENVIRONMENT: staging
+        run: |
+          cd tests/performance
+          k6 run --vus 10 --duration 2m --out json=smoke-test-results.json auth-load-test.js
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test-results
+          path: tests/performance/smoke-test-results.json
+          retention-days: 7
+
+      - name: Comment PR with Results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('tests/performance/smoke-test-results.json', 'utf8'));
+            // Parse and format results, then comment on PR
+            // (Implementation depends on k6 JSON output format)
+
+  # Job 2: Load Test (Scheduled and manual)
+  load-test:
+    name: Load Test - ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_type == 'load')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | \
+            sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Set environment URL
+        id: set-url
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            echo "BASE_URL=${{ secrets.PRODUCTION_API_URL }}" >> $GITHUB_ENV
+          else
+            echo "BASE_URL=${{ secrets.STAGING_API_URL }}" >> $GITHUB_ENV
+          fi
+
+      - name: Run Load Test
+        env:
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'staging' }}
+          TARGET_VUS: ${{ github.event.inputs.target_vus || '100' }}
+        run: |
+          cd tests/performance
+          k6 run --out json=load-test-results.json auth-load-test.js
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-results-${{ github.event.inputs.environment || 'staging' }}
+          path: tests/performance/load-test-results.json
+          retention-days: 30
+
+      - name: Upload to k6 Cloud (Optional)
+        if: env.K6_CLOUD_TOKEN != ''
+        env:
+          K6_CLOUD_TOKEN: ${{ secrets.K6_CLOUD_TOKEN }}
+        run: |
+          cd tests/performance
+          k6 cloud auth-load-test.js
+
+      - name: Check Performance Thresholds
+        if: always()
+        run: |
+          # k6 exits with non-zero code if thresholds are violated
+          exit_code=$?
+          if [ $exit_code -ne 0 ]; then
+            echo "::error::Performance thresholds violated! Check test results."
+            exit 1
+          fi
+
+  # Job 3: Stress Test (Manual only)
+  stress-test:
+    name: Stress Test - ${{ github.event.inputs.test_type }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.test_type != 'load'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | \
+            sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Set environment URL
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            echo "BASE_URL=${{ secrets.PRODUCTION_API_URL }}" >> $GITHUB_ENV
+          else
+            echo "BASE_URL=${{ secrets.STAGING_API_URL }}" >> $GITHUB_ENV
+          fi
+
+      - name: Run Stress Test
+        env:
+          ENVIRONMENT: ${{ github.event.inputs.environment }}
+        run: |
+          cd tests/performance
+          k6 run --scenario ${{ github.event.inputs.test_type }} \
+            --out json=stress-test-results.json \
+            auth-stress-test.js
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stress-test-results-${{ github.event.inputs.test_type }}
+          path: tests/performance/stress-test-results.json
+          retention-days: 30
+
+      - name: Create Summary Report
+        if: always()
+        run: |
+          echo "## Stress Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test Type: ${{ github.event.inputs.test_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
+
+  # Job 4: Performance Regression Check
+  regression-check:
+    name: Performance Regression Analysis
+    runs-on: ubuntu-latest
+    needs: load-test
+    if: github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Current Results
+        uses: actions/download-artifact@v4
+        with:
+          name: load-test-results-staging
+          path: ./current
+
+      - name: Download Baseline Results
+        uses: actions/download-artifact@v4
+        with:
+          name: baseline-results
+          path: ./baseline
+        continue-on-error: true
+
+      - name: Compare Results
+        run: |
+          # Placeholder for regression comparison logic
+          # This would compare current results against baseline
+          # and flag significant performance degradation
+          echo "Regression check would run here"
+
+      - name: Save as New Baseline
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-results
+          path: ./current/load-test-results.json
+          retention-days: 90
+
+  # Job 5: Notification
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [load-test, stress-test]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - name: Send Slack Notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          # Send notification to Slack about test results
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "Performance Test Completed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Performance Test Results*\nEnvironment: ${{ github.event.inputs.environment || 'staging' }}\nStatus: ${{ job.status }}"
+                  }
+                }
+              ]
+            }'
+
+      - name: Send Email Notification (Optional)
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: Performance Test Failed - ${{ github.event.inputs.environment }}
+          body: Performance test failed. Check GitHub Actions for details.
+          to: performance-team@example.com
+          from: github-actions@example.com

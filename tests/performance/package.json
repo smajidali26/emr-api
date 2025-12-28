@@ -1,0 +1,62 @@
+{
+  "name": "emr-performance-tests",
+  "version": "1.0.0",
+  "description": "Performance test suite for EMR API including Authentication and HIPAA Audit Logging",
+  "scripts": {
+    "test": "k6 run auth-load-test.js",
+    "test:load": "k6 run auth-load-test.js",
+    "test:stress": "k6 run auth-stress-test.js",
+    "test:stress:only": "k6 run --scenario stress auth-stress-test.js",
+    "test:spike": "k6 run --scenario spike auth-stress-test.js",
+    "test:soak": "k6 run --scenario soak auth-stress-test.js",
+    "test:breakpoint": "k6 run --scenario breakpoint auth-stress-test.js",
+    "test:smoke": "k6 run --vus 10 --duration 2m auth-load-test.js",
+    "test:quick": "k6 run --vus 20 --duration 3m auth-load-test.js",
+    "test:staging": "BASE_URL=https://staging-api.example.com k6 run auth-load-test.js",
+    "test:prod": "BASE_URL=https://api.example.com k6 run auth-load-test.js",
+    "test:local": "BASE_URL=http://localhost:5000 k6 run auth-load-test.js",
+    "test:report": "k6 run --out json=results.json auth-load-test.js",
+    "test:cloud": "k6 cloud auth-load-test.js",
+    "test:all": "npm run test:load && npm run test:stress",
+    "audit:load": "k6 run audit-load-test.js",
+    "audit:stress": "k6 run audit-stress-test.js",
+    "audit:stress:spike": "k6 run -e STRESS_TEST_TYPE=spike audit-stress-test.js",
+    "audit:stress:ramp": "k6 run -e STRESS_TEST_TYPE=ramp audit-stress-test.js",
+    "audit:stress:soak": "k6 run -e STRESS_TEST_TYPE=soak audit-stress-test.js",
+    "audit:stress:7year": "k6 run -e STRESS_TEST_TYPE=seven_year_stress audit-stress-test.js",
+    "audit:stress:export": "k6 run -e STRESS_TEST_TYPE=export_stress audit-stress-test.js",
+    "audit:quick": "k6 run --vus 10 --duration 2m audit-load-test.js",
+    "audit:local": "k6 run -e BASE_URL=https://localhost:5001 audit-load-test.js",
+    "audit:report": "k6 run --out json=audit-results.json audit-load-test.js",
+    "audit:write": "k6 run audit-write-test.js",
+    "audit:write:quick": "k6 run --vus 10 --duration 1m audit-write-test.js",
+    "audit:all": "npm run audit:load && npm run audit:stress && npm run audit:write"
+  },
+  "keywords": [
+    "k6",
+    "performance",
+    "load-testing",
+    "stress-testing",
+    "healthcare",
+    "EMR",
+    "authentication",
+    "HIPAA",
+    "audit-logging",
+    "TimescaleDB",
+    "compliance"
+  ],
+  "author": "EMR Performance Testing Team",
+  "license": "UNLICENSED",
+  "private": true,
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/emr-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/emr-api/issues"
+  }
+}
