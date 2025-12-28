@@ -91,26 +91,60 @@ public class CsrfProtectionTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task PostRequest_WithValidCsrfToken_ShouldSucceed()
     {
-        // Arrange
-        var client = CreateAuthenticatedClient();
+        // Arrange - Create a client with cookie handling
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = "Test";
+                    options.DefaultChallengeScheme = "Test";
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
+            });
+        }).CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
 
-        // First, get a CSRF token
+        // First, get a CSRF token (this sets the cookie)
         var csrfResponse = await client.GetAsync("/api/auth/csrf-token");
         var csrfContent = await csrfResponse.Content.ReadFromJsonAsync<CsrfTokenResponse>();
         var csrfToken = csrfContent!.Token;
 
-        // Create request with CSRF token
+        // Extract the CSRF cookie from the response
+        string? csrfCookie = null;
+        if (csrfResponse.Headers.TryGetValues("Set-Cookie", out var cookies))
+        {
+            foreach (var cookie in cookies)
+            {
+                if (cookie.StartsWith("XSRF-TOKEN="))
+                {
+                    // Extract just the cookie value without attributes
+                    csrfCookie = cookie.Split(';')[0];
+                    break;
+                }
+            }
+        }
+
+        // Create request with CSRF token header AND cookie
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/patients")
         {
             Content = new StringContent("{\"firstName\":\"Test\",\"lastName\":\"User\"}", Encoding.UTF8, "application/json")
         };
         request.Headers.Add("X-CSRF-Token", csrfToken);
+        if (csrfCookie != null)
+        {
+            request.Headers.Add("Cookie", csrfCookie);
+        }
 
         // Act
         var response = await client.SendAsync(request);
 
         // Assert - Should not fail due to CSRF validation
-        // May fail for other reasons (validation, etc.) but not 403 for CSRF
+        // May fail for other reasons (validation, auth, etc.) but not 403 for CSRF
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
             var errorContent = await response.Content.ReadAsStringAsync();
